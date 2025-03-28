@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRYWhite Chat</title>
+    <style>
+        :root {
+            --bg-primary: #f0f2f5;
+            --bg-secondary: #ffffff;
+            --text-primary: #000000;
+            --border-color: #e0e0e0;
+        }
+        
+        body.dark-mode {
+            --bg-primary: #18191a;
+            --bg-secondary: #242526;
+            --text-primary: #ffffff;
+            --border-color: #393a3b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+            transition: background-color 0.3s;
+        }
+
+        .message .username {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .message-input-container {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        #username-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            margin-right: 10px;
+            max-width: 200px;
+        }
+
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            margin-right: 10px;
+        }
+
+        #send-btn {
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .link-preview {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-primary);
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .link-preview img {
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+            border-radius: 5px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message {
+            animation: fadeIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle">🌓</button>
+    <div id="chat-container"></div>
+    <div class="message-input-container">
+        <div class="input-row">
+            <input type="text" id="username-input" placeholder="Your Username" maxlength="20">
+            <input type="text" id="message-input" placeholder="Type a message..." maxlength="140">
+            <button id="send-btn">➤</button>
+        </div>
+    </div>
+
+    <script type="application/javascript">
+        // Theme Toggle
+        const themeToggle = document.querySelector('.theme-toggle');
+        const body = document.body;
+
+        // Load theme preference from localStorage
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            body.classList.add(savedTheme);
+        }
+
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            const currentTheme = body.classList.contains('dark-mode') ? 'dark-mode' : '';
+            localStorage.setItem('theme', currentTheme);
+        });
+
+        // Chat Functionality
+        const chatContainer = document.getElementById('chat-container');
+        const usernameInput = document.getElementById('username-input');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        // Load last used username from localStorage
+        const savedUsername = localStorage.getItem('username');
+        if (savedUsername) {
+            usernameInput.value = savedUsername;
+        }
+
+        // Function to detect and create image preview
+        const createImagePreview = (message) => {
+            const imageRegex = /https?:\/\/\S+\.(jpg|jpeg|png|gif|webp)/gi;
+            const matches = message.match(imageRegex);
+            if (matches) {
+                const img = document.createElement('img');
+                img.src = matches[0];
+                img.classList.add('image-preview');
+                return img;
+            }
+            return null;
+        };
+
+        // Function to detect and create link preview
+        const createLinkPreview = async (message) => {
+            const linkRegex = /https?:\/\/\S+/gi;
+            const matches = message.match(linkRegex);
+            if (matches && !matches[0].match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                try {
+                    const preview = document.createElement('div');
+                    preview.classList.add('link-preview');
+                    
+                    // Placeholder for link preview (since we can't fetch metadata)
+                    preview.innerHTML = `
+                        <img src="/api/placeholder/50/50" alt="Link">
+                        <div>
+                            <strong>External Link</strong>
+                            <p>${matches[0].slice(0, 30)}...</p>
+                        </div>
+                    `;
+                    
+                    return preview;
+                } catch (error) {
+                    console.error('Link preview error:', error);
+                    return null;
+                }
+            }
+            return null;
+        };
+
+        // Fetch and display messages
+        const fetchMessages = async () => {
+            try {
+                const response = await fetch('https://chat.nrywhite.lat/chats');
+                const messages = await response.json();
+
+                // Keep scroll position
+                const wasScrolledToBottom = 
+                    chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 1;
+
+                chatContainer.innerHTML = ''; // Clear existing messages
+                
+                for (const { username, message } of messages) {
+                    const messageEl = document.createElement('div');
+                    messageEl.classList.add('message');
+                    
+                    const usernameEl = document.createElement('span');
+                    usernameEl.classList.add('username');
+                    usernameEl.textContent = username;
+                    
+                    const textEl = document.createElement('div');
+                    textEl.textContent = message;
+
+                    messageEl.appendChild(usernameEl);
+                    messageEl.appendChild(textEl);
+
+                    // Add image preview if exists
+                    const imagePreview = createImagePreview(message);
+                    if (imagePreview) {
+                        messageEl.appendChild(imagePreview);
+                    }
+
+                    // Add link preview if exists
+                    const linkPreview = await createLinkPreview(message);
+                    if (linkPreview) {
+                        messageEl.appendChild(linkPreview);
+                    }
+
+                    chatContainer.appendChild(messageEl);
+                }
+
+                // Restore scroll position
+                if (wasScrolledToBottom) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error fetching messages:', error);
+            }
+        };
+
+        // Send message
+        const sendMessage = async () => {
+            const username = usernameInput.value.trim();
+            const message = messageInput.value.trim();
+
+            if (username && message) {
+                try {
+                    await fetch('https://chat.nrywhite.lat/chats', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            username: username, 
+                            message: message 
+                        })
+                    });
+
+                    // Save username to localStorage
+                    localStorage.setItem('username', username);
+
+                    messageInput.value = '';
+                    await fetchMessages();
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                }
+            }
+        };
+
+        // Event Listeners
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        usernameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initial fetch and auto-refresh
+        fetchMessages();
+        setInterval(fetchMessages, 10000); // 10 seconds auto-refresh
+    </script>
+</body>
+</html>
